@@ -1,0 +1,27 @@
+data_dir: ./HDFS/hdfs_result
+device: cpu
+log_name: hdfs
+num_of_class: 24
+sample: session_window
+window_size: 10
+sequentials: True
+quantitatives: False
+semantics: False
+feature_num: 1
+input_size: 1
+hidden_size: 64
+num_layers: 2
+num_classes: 28
+embedding_size: 10
+batch_size: 2048
+accumulation_step: 1
+optimizer: adam
+lr: 0.001
+max_epoch: 370
+lr_step: (300, 350)
+lr_decay_ratio: 0.1
+resume_path: None
+model_name: deeplog
+save_dir: ./HDFS/hdfs_result
+model_path: ./HDFS/hdfs_result/deeplog/deeplog_last.pth
+num_candidates: 9
