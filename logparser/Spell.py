@@ -294,6 +294,7 @@ class LogParser:
                 if k%1000 == 0:
                     print("extracted {0} log lines from {1}".format(k, log_file))
 
+
                 line = re.sub(r'[^\x00-\x7F]+', '<NASCII>', line) #replace non ASCII (\x00-\x7F) character with <NASCII>
 
                 if self.has_list: #replace space with % in a list
@@ -326,6 +327,7 @@ class LogParser:
         for k in range(len(splitters)):
             if k % 2 == 0:
                 splitter = re.sub(' +', '\\\s+', splitters[k]) #re.sub(' +', '\s+', splitters[k])
+
                 regex += splitter
             else:
                 header = splitters[k].strip('<').strip('>')
