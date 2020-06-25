@@ -56,9 +56,9 @@ def sliding_window(data_dir, datatype, window_size, sample_ratio=1):
     result_logs['Semantics'] = []
     labels = []
     if datatype == 'train':
-        data_dir += 'hdfs_train.txt'
+        data_dir += 'train.txt'
     if datatype == 'val':
-        data_dir += 'hdfs_test_normal.txt'
+        data_dir += 'test_normal.txt'
 
     with open(data_dir, 'r') as f:
         for line in f.readlines():

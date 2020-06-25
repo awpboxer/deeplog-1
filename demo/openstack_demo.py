@@ -18,5 +18,5 @@ regex      = [
 
 
 parser = Spell.LogParser(indir=input_dir, outdir=output_dir, log_format=log_format, tau=tau, rex=regex)
-parser.has_list = True
+parser.has_list = True  # connect request ids in content with %
 parser.parse(log_file)

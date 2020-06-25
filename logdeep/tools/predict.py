@@ -57,10 +57,10 @@ class Predicter():
         model.load_state_dict(torch.load(self.model_path)['state_dict'])
         model.eval()
         print('model_path: {}'.format(self.model_path))
-        test_normal_loader, test_normal_length = generate(self.data_dir, 'hdfs_test_normal')
+        test_normal_loader, test_normal_length = generate(self.data_dir, 'test_normal')
         test_abnormal_loader, test_abnormal_length = generate(
             self.data_dir,
-            'hdfs_test_abnormal')
+            'test_abnormal')
         TP = 0
         FP = 0
         # Test the model
