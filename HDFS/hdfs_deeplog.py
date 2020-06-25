@@ -33,7 +33,7 @@ options['feature_num'] = sum(
 options['input_size'] = 1
 options['hidden_size'] = 64
 options['num_layers'] = 2
-options['num_classes'] = 28
+options['num_classes'] = 45 # number of log keys
 
 # Train
 options['batch_size'] = 2048

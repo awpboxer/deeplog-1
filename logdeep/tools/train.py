@@ -38,16 +38,19 @@ class Trainer():
         self.semantics = options['semantics']
         self.sample = options['sample']
         self.feature_num = options['feature_num']
+        self.num_classes = options['num_classes']
 
         os.makedirs(self.save_dir, exist_ok=True)
         if self.sample == 'sliding_window':
             train_logs, train_labels = sliding_window(self.data_dir,
                                                   datatype='train',
-                                                  window_size=self.window_size)
+                                                  window_size=self.window_size,
+                                                  num_classes=self.num_classes)
             val_logs, val_labels = sliding_window(self.data_dir,
                                               datatype='val',
                                               window_size=self.window_size,
-                                              sample_ratio=0.01)
+                                              num_classes=self.num_classes,
+                                              sample_ratio=0.001)
         elif self.sample == 'session_window':
             train_logs, train_labels = session_window(self.data_dir,
                                                       datatype='train')

@@ -5,6 +5,7 @@ import json
 import pandas as pd
 from collections import OrderedDict
 from HDFS import hdfs_const
+from tqdm import tqdm
 
 print(os.getcwd())
 os.chdir("../")
@@ -63,19 +64,19 @@ def hdfs_sampling(log_file, window='session', window_size=0):
         event_num = json.load(f)
 
     data_dict = OrderedDict() #preserve insertion order of items
-    for idx, row in struct_log.iterrows():
+    for idx, row in tqdm(struct_log.iterrows()):
         blkId_list = re.findall(r'(blk_-?\d+)', row['Content'])
         blkId_set = set(blkId_list)
         for blk_Id in blkId_set:
             if not blk_Id in data_dict:
                 data_dict[blk_Id] = []
             num = event_num.get(row["EventId"])
-            if num and num <= 28: # extract top 28 events with most occurrences
+            if num:
                 data_dict[blk_Id].append(num)
             else:
                 print("No mapping for EventId: %s"%row["EventId"])
                 print(row)
-    data_dict = {k: v for k, v in data_dict if len(v) > 0} # remove blockid without eventid in sequence
+    #data_dict = {k: v for k, v in data_dict.items() if len(v) > 0} # remove blockid without eventid in sequence
     data_df = pd.DataFrame(list(data_dict.items()), columns=['BlockId', 'EventSequence'])
     data_df.to_csv(log_sequence_file,index=None)
     print("hdfs sampling done")
@@ -99,7 +100,7 @@ def generate_train_test(hdfs_sequence_file, n=None, ratio=0.3 ):
     abnormal_seq = seq[seq["Label"] == 1]["EventSequence"]
     normal_len, abnormal_len = len(normal_seq), len(abnormal_seq)
     train_len = n if n else int(normal_len * ratio)
-    print("normal size {0}, abnormal size {1}, train {2}".format(normal_len, abnormal_len, train_len))
+    print("normal size {0}, abnormal size {1}, training size {2}".format(normal_len, abnormal_len, train_len))
 
     train = normal_seq.iloc[:train_len]
     test_normal = normal_seq.iloc[train_len:]
@@ -115,4 +116,5 @@ def generate_train_test(hdfs_sequence_file, n=None, ratio=0.3 ):
 if __name__ == "__main__":
     #mapping()
     #hdfs_sampling(log_structured_file)
-    generate_train_test(log_sequence_file)
+    generate_train_test(log_sequence_file, n=4855)
+

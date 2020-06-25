@@ -39,7 +39,7 @@ def down_sample(logs, labels, sample_ratio):
     return sample_logs, sample_labels
 
 
-def sliding_window(data_dir, datatype, window_size, sample_ratio=1):
+def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1):
     '''
     dataset structure
         result_logs(dict):
@@ -70,7 +70,7 @@ def sliding_window(data_dir, datatype, window_size, sample_ratio=1):
 
             for i in range(len(line) - window_size):
                 Sequential_pattern = list(line[i:i + window_size])
-                Quantitative_pattern = [0] * 28
+                Quantitative_pattern = [0] * num_classes
                 log_counter = Counter(Sequential_pattern)
 
                 for key in log_counter:
