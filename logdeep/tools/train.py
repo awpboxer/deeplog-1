@@ -36,6 +36,7 @@ class Trainer():
         self.sequentials = options['sequentials']
         self.quantitatives = options['quantitatives']
         self.semantics = options['semantics']
+        self.parameters = options['parameters']
         self.sample = options['sample']
         self.feature_num = options['feature_num']
         self.num_classes = options['num_classes']
@@ -63,12 +64,14 @@ class Trainer():
                                     labels=train_labels,
                                     seq=self.sequentials,
                                     quan=self.quantitatives,
-                                    sem=self.semantics)
+                                    sem=self.semantics,
+                                    param=self.parameters)
         valid_dataset = log_dataset(logs=val_logs,
                                     labels=val_labels,
                                     seq=self.sequentials,
                                     quan=self.quantitatives,
-                                    sem=self.semantics)
+                                    sem=self.semantics,
+                                    param=self.parameters)
 
         del train_logs
         del val_logs

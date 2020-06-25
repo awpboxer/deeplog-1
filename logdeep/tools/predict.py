@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from logdeep.dataset.log import log_dataset
-from logdeep.dataset.sample import session_window
+from logdeep.dataset.sample import session_window, sliding_window
 from logdeep.tools.utils import (save_parameters, seed_everything,
                                  train_val_split)
 
@@ -27,9 +27,16 @@ def generate(data_dir, name):
     window_size = 10
     hdfs = {}
     length = 0
-    with open(data_dir + name + ".txt", 'r') as f:
+
+    with open(data_dir + name + '.txt', 'r') as f:
         for ln in f.readlines():
-            ln = list(map(lambda n: n - 1, map(int, ln.strip().split())))
+            ln = list(map(eval, ln.strip().strip('"').split()))
+            if isinstance(ln[0], int):
+                ln = tuple(map(lambda n: n - 1, ln))
+            else:
+                params = tuple(map(lambda x: x[1], ln))
+                ln = list(map(lambda x: x[0]-1, ln))
+
             ln = ln + [-1] * (window_size + 1 - len(ln))
             hdfs[tuple(ln)] = hdfs.get(tuple(ln), 0) + 1
             length += 1
@@ -50,6 +57,7 @@ class Predicter():
         self.sequentials = options['sequentials']
         self.quantitatives = options['quantitatives']
         self.semantics = options['semantics']
+        self.parameters = options['parameters']
         self.batch_size = options['batch_size']
         self.num_classes = options['num_classes']
 
@@ -59,10 +67,9 @@ class Predicter():
         model.eval()
         print('model_path: {}'.format(self.model_path))
         test_normal_loader, test_normal_length = generate(self.data_dir, 'test_normal')
-        test_abnormal_loader, test_abnormal_length = generate(
-             self.data_dir,
-            'test_abnormal')
+        test_abnormal_loader, test_abnormal_length = generate( self.data_dir, 'test_abnormal')
         print("testing normal size {}, testing abnormal size".format(test_normal_length, test_abnormal_length))
+
         TP = 0
         FP = 0
         # Test the model
@@ -112,15 +119,89 @@ class Predicter():
 
         # Compute precision, recall and F1-measure
         FN = test_abnormal_length - TP
-        P = 100 * TP / (TP + FP)
-        R = 100 * TP / (TP + FN)
-        F1 = 2 * P * R / (P + R)
+        P = 100 * TP / (TP + FP +1 )
+        R = 100 * TP / (TP + FN+1)
+        F1 = 2 * P * R / (P + R+1)
         print(
             'false positive (FP): {}, false negative (FN): {}, Precision: {:.3f}%, Recall: {:.3f}%, F1-measure: {:.3f}%'
             .format(FP, FN, P, R, F1))
         print('Finished Predicting')
         elapsed_time = time.time() - start_time
         print('elapsed_time: {}'.format(elapsed_time))
+
+
+    def predict_unsupervised_with_params(self):
+        model = self.model.to(self.device)
+        model.load_state_dict(torch.load(self.model_path)['state_dict'])
+        model.eval()
+        print('model_path: {}'.format(self.model_path))
+        test_normal_logs, test_normal_labels = sliding_window(
+            data_dir=self.data_dir,
+            datatype='test_normal',
+            window_size= self.window_size,
+            sample_ratio=1
+        )
+        test_abnormal_logs, test_abnormal_labels = sliding_window(
+            data_dir=self.data_dir,
+            datatype='test_abnormal',
+            window_size=self.window_size
+        )
+
+        test_normal_loader = log_dataset(logs=test_normal_logs,
+                                    labels=test_normal_labels,
+                                    seq=self.sequentials,
+                                    quan=self.quantitatives,
+                                    sem=self.semantics,
+                                    param=self.parameters)
+        test_abnormal_loader = log_dataset(logs=test_abnormal_logs,
+                                    labels=test_abnormal_labels,
+                                    seq=self.sequentials,
+                                    quan=self.quantitatives,
+                                    sem=self.semantics,
+                                    param=self.parameters)
+
+        TP = 0
+        FP = 0
+        start_time = time.time()
+        normal_tbar = tqdm(test_normal_loader)
+        with torch.no_grad():
+            for i, (log, label) in enumerate(normal_tbar):
+                    features = []
+                    for value in log.values():
+                        features.append(value.clone().view(-1, self.window_size, self.input_size).to(self.device))
+                    output = model(features=features, device=self.device)
+                    predicted = torch.argsort(output,
+                                            1)[0][-self.num_candidates:]
+                    if label not in predicted:
+                        FP += 1
+                        break
+
+        abnormal_tbar = tqdm(test_abnormal_loader)
+        with torch.no_grad():
+            for i, (log, label) in enumerate(abnormal_tbar):
+                features = []
+                for value in log.values():
+                    features.append(value.clone().view(-1,self.window_size, self.input_size).to(self.device))
+                output = model(features=features, device=self.device)
+                predicted = torch.argsort(output,
+                                              1)[0][-self.num_candidates:]
+                if label not in predicted:
+                    TP += 1
+                    break
+
+        # Compute precision, recall and F1-measure
+        FN = len(test_abnormal_labels) - TP
+        P = 100 * TP / (TP + FP +1)
+        R = 100 * TP / (TP + FN +1)
+        F1 = 2 * P * R / (P + R +1)
+        print(
+            'false positive (FP): {}, false negative (FN): {}, Precision: {:.3f}%, Recall: {:.3f}%, F1-measure: {:.3f}%'
+            .format(FP, FN, P, R, F1))
+        print('Finished Predicting')
+        elapsed_time = time.time() - start_time
+        print('elapsed_time: {}'.format(elapsed_time))
+
+
 
     def predict_supervised(self):
         model = self.model.to(self.device)

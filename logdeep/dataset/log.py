@@ -9,16 +9,19 @@ from logdeep.dataset.sample0 import sliding_window, session_window
 
 
 class log_dataset(Dataset):
-    def __init__(self, logs, labels, seq=True, quan=False, sem=False):
+    def __init__(self, logs, labels, seq=True, quan=False, sem=False, param=False):
         self.seq = seq
         self.quan = quan
         self.sem = sem
+        self.param = param
         if self.seq:
             self.Sequentials = logs['Sequentials']
         if self.quan:
             self.Quantitatives = logs['Quantitatives']
         if self.sem:
             self.Semantics = logs['Semantics']
+        if self.param:
+            self.Parameters = logs['Parameters']
         self.labels = labels
 
     def __len__(self):
@@ -35,6 +38,8 @@ class log_dataset(Dataset):
         if self.sem:
             log['Semantics'] = torch.tensor(self.Semantics[idx],
                                             dtype=torch.float)
+        if self.param:
+            log['Parameters'] = torch.tensor(self.Parameters[idx], dtype=torch.float)
         return log, self.labels[idx]
 
 

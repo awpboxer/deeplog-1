@@ -54,23 +54,35 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
     result_logs['Sequentials'] = []
     result_logs['Quantitatives'] = []
     result_logs['Semantics'] = []
+    result_logs['Parameters'] = []
     labels = []
-    if datatype == 'train':
-        data_dir += 'train.txt'
     if datatype == 'val':
         data_dir += 'test_normal.txt'
+    else:
+        data_dir += f'{datatype}.txt'
 
+    #7 8 10 9\n  log keys
+    #[7,10] [8,2] [10,5] [9,6]\n log keys and params(eg: time)
     with open(data_dir, 'r') as f:
         for line in f.readlines():
             if len(line.strip()) == 0:
                 continue
             num_sessions += 1
 
-            line = tuple(map(lambda n: n - 1, map(int, line.strip().split())))
+            # split log keys and other params(features)
+            line = list(map(eval, line.strip().strip('"').split()))
+            if isinstance(line[0], int):
+                line = tuple(map(lambda n: n - 1, line))
+            else:
+                params = tuple(map(lambda x: x[1], line))
+                line = tuple(map(lambda x: x[0]-1, line))
+
+            #line = tuple(map(lambda n: n - 1, map(int, line.strip().split())))
 
             for i in range(len(line) - window_size):
                 Sequential_pattern = list(line[i:i + window_size])
                 Quantitative_pattern = [0] * num_classes
+                Parameter_pattern = list(params[i:i+window_size])
                 log_counter = Counter(Sequential_pattern)
 
                 for key in log_counter:
@@ -86,9 +98,12 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
                                                                np.newaxis]
                 Quantitative_pattern = np.array(
                     Quantitative_pattern)[:, np.newaxis]
+
+                Parameter_pattern = np.array(Parameter_pattern)[:, np.newaxis] #increase one more dimension
                 result_logs['Sequentials'].append(Sequential_pattern)
                 result_logs['Quantitatives'].append(Quantitative_pattern)
                 result_logs['Semantics'].append(Semantic_pattern)
+                result_logs["Parameters"].append(Parameter_pattern)
                 labels.append(line[i + window_size])
 
     if sample_ratio != 1:

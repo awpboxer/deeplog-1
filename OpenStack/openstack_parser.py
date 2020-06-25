@@ -27,7 +27,7 @@ if __name__ == "__main__":
     tau = 0.55  # Message type threshold (default: 0.5)
     regex = [
         r"(?<=\[instance: )[A-Za-z0-9-]+" , #replace id after instance with *
-        r"([A-Za-z0-9]+-){4}[A-Za-z0-9]+",  # replace instance id with *
+        #r"([A-Za-z0-9]+-){4}[A-Za-z0-9]+",  # replace instance id with *
         r"(/\w+)+"  # replace file address /var/.../.. with *
     ]
     # Regular expression list for optional preprocessing (default: []) for line in log

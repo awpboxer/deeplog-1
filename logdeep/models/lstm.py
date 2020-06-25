@@ -56,11 +56,15 @@ class deeplog2(nn.Module):
         super(deeplog2, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.lstm = nn.LSTM(input_size,
+        self.lstm0 = nn.LSTM(input_size,
                             hidden_size,
                             num_layers,
                             batch_first=True)
-        self.fc = nn.Linear(hidden_size, num_keys)
+        self.lstm1 = nn.LSTM(input_size,
+                            hidden_size,
+                            num_layers,
+                            batch_first=True)
+        self.fc = nn.Linear(2*hidden_size, num_keys)
 
     def forward(self, features, device):
         input0, input1 = features[0], features[1]
