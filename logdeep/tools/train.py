@@ -40,6 +40,11 @@ class Trainer():
         self.sample = options['sample']
         self.feature_num = options['feature_num']
         self.num_classes = options['num_classes']
+        self.batch_size_train = options["batch_size_train"]
+        self.batch_size_test = options["batch_size_test"]
+        self.early_stopping = False
+        self.n_epochs_stop = options["n_epochs_stop"]
+        self.epochs_no_improve = 0
 
         os.makedirs(self.save_dir, exist_ok=True)
         if self.sample == 'sliding_window':
@@ -51,7 +56,7 @@ class Trainer():
                                               datatype='val',
                                               window_size=self.window_size,
                                               num_classes=self.num_classes,
-                                              sample_ratio=0.001)
+                                              sample_ratio=0.01)
         elif self.sample == 'session_window':
             train_logs, train_labels = session_window(self.data_dir,
                                                       datatype='train')
@@ -78,11 +83,11 @@ class Trainer():
         gc.collect()
 
         self.train_loader = DataLoader(train_dataset,
-                                       batch_size=self.batch_size,
+                                       batch_size=self.batch_size_train,
                                        shuffle=True,
                                        pin_memory=True)
         self.valid_loader = DataLoader(valid_dataset,
-                                       batch_size=self.batch_size,
+                                       batch_size=self.batch_size_test,
                                        shuffle=False,
                                        pin_memory=True)
 
@@ -92,7 +97,7 @@ class Trainer():
         print('Find %d train logs, %d validation logs' %
               (self.num_train_log, self.num_valid_log))
         print('Train batch size %d ,Validation batch size %d' %
-              (options['batch_size'], options['batch_size']))
+              (options['batch_size_train'], options['batch_size_test']))
 
         self.model = model.to(self.device)
 
@@ -164,7 +169,7 @@ class Trainer():
         self.log['train']['epoch'].append(epoch)
         start = time.strftime("%H:%M:%S")
         lr = self.optimizer.state_dict()['param_groups'][0]['lr']
-        print("Starting epoch: %d | phase: train | ⏰: %s | Learning rate: %f" %
+        print("\nStarting epoch: %d | phase: train | ⏰: %s | Learning rate: %f" %
               (epoch, start, lr))
         self.log['train']['lr'].append(lr)
         self.log['train']['time'].append(start)
@@ -196,7 +201,7 @@ class Trainer():
         lr = self.optimizer.state_dict()['param_groups'][0]['lr']
         self.log['valid']['lr'].append(lr)
         start = time.strftime("%H:%M:%S")
-        print("Starting epoch: %d | phase: valid | ⏰: %s " % (epoch, start))
+        print("\nStarting epoch: %d | phase: valid | ⏰: %s " % (epoch, start))
         self.log['valid']['time'].append(start)
         total_losses = 0
         criterion = nn.CrossEntropyLoss()
@@ -210,7 +215,7 @@ class Trainer():
                 output = self.model(features=features, device=self.device)
                 loss = criterion(output, label.to(self.device))
                 total_losses += float(loss)
-        print("Validation loss:", total_losses / num_batch)
+        print("\nValidation loss:", total_losses / num_batch)
         self.log['valid']['loss'].append(total_losses / num_batch)
 
         if total_losses / num_batch < self.best_loss:
@@ -218,20 +223,29 @@ class Trainer():
             self.save_checkpoint(epoch,
                                  save_optimizer=False,
                                  suffix="bestloss")
+            self.epochs_no_improve = 0
+        else:
+            self.epochs_no_improve += 1
+
+        if self.epochs_no_improve == self.n_epochs_stop:
+            self.early_stopping = True
+            print("Early stopping")
 
     def start_train(self):
         for epoch in range(self.start_epoch, self.max_epoch):
-            if epoch == 0:
-                self.optimizer.param_groups[0]['lr'] /= 32
-            if epoch in [1, 2, 3, 4, 5]:
-                self.optimizer.param_groups[0]['lr'] *= 2
-            if epoch in self.lr_step:
-                self.optimizer.param_groups[0]['lr'] *= self.lr_decay_ratio
+            # if epoch == 0:
+            #     self.optimizer.param_groups[0]['lr'] /= 32
+            # if epoch in [1, 2, 3, 4, 5]:
+            #     self.optimizer.param_groups[0]['lr'] *= 2
+            # if epoch in self.lr_step:
+            #     self.optimizer.param_groups[0]['lr'] *= self.lr_decay_ratio
+            if self.early_stopping:
+                break
             self.train(epoch)
-            if epoch >= self.max_epoch // 2 and epoch % 2 == 0:
-                self.valid(epoch)
-                self.save_checkpoint(epoch,
-                                     save_optimizer=True,
-                                     suffix="epoch" + str(epoch))
-            self.save_checkpoint(epoch, save_optimizer=True, suffix="last")
+            #if epoch >= self.max_epoch // 2 and epoch % 2 == 0:
+            self.valid(epoch)
+            # self.save_checkpoint(epoch,
+            #                       save_optimizer=True,
+            #                       suffix="epoch" + str(epoch))
+            #self.save_checkpoint(epoch, save_optimizer=True, suffix="last")
             self.save_log()

@@ -13,6 +13,7 @@ import pandas as pd
 import hashlib
 from datetime import datetime
 import string
+from tqdm import tqdm
 
 
 class LCSObject:
@@ -54,7 +55,6 @@ class LogParser:
         self.df_log = None
         self.rex = rex
         self.keep_para = keep_para
-        self.has_list = None
 
     def LCS(self, seq1, seq2):
         lengths = [[0 for j in range(len(seq2) + 1)] for i in range(len(seq1) + 1)]
@@ -186,12 +186,12 @@ class LogParser:
                     parentn = matchedNode
 
     def outputResult(self, logClustL):
-
+        print("output result", self.savePath)
         templates = [0] * self.df_log.shape[0]
         ids = [0] * self.df_log.shape[0]
         df_event = []
 
-        for logclust in logClustL:
+        for logclust in tqdm(logClustL):
             template_str = ' '.join(logclust.logTemplate)
             eid = hashlib.md5(template_str.encode('utf-8')).hexdigest()[0:8]
             for logid in logclust.logIDL:
@@ -231,12 +231,13 @@ class LogParser:
         self.load_data()
         rootNode = Node()
         logCluL = []
-
+        punc = re.sub('[<*>]', '', string.punctuation)
         count = 0
         for idx, line in self.df_log.iterrows():
             logID = line['LineId']
-            logmessageL = list(filter(lambda x: x != '', re.split(r'[\s=:,]', self.preprocess(line['Content']))))
+            logmessageL = list(filter(lambda x: x.strip() != '', re.split(f'[{punc}]', self.preprocess(line['Content']))))
             constLogMessL = [w for w in logmessageL if w != '<*>']
+            #constLogMessL = [w for w in logmessageL]
 
             # Find an existing matched log cluster
             matchCluster = self.PrefixTreeMatch(rootNode, constLogMessL, 0)
@@ -293,19 +294,7 @@ class LogParser:
                 k += 1
                 if k%1000 == 0:
                     print("extracted {0} log lines from {1}".format(k, log_file))
-
-
                 line = re.sub(r'[^\x00-\x7F]+', '<NASCII>', line) #replace non ASCII (\x00-\x7F) character with <NASCII>
-
-                if self.has_list: #replace space with % in a list
-                    match = re.search('\[(.*?)\]', line)
-                    if match:
-                        request_ids = match.group(1)
-                        request_ids = re.sub("\\s+", "%", request_ids)
-                        line = line[:match.start()] + request_ids + line[match.end():]
-                    else:
-                        print("no request id in log: %s"%line)
-
                 try:
                     match = regex.search(line.strip())
                     message = [match.group(header) for header in headers]

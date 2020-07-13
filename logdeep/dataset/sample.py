@@ -57,9 +57,9 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
     result_logs['Parameters'] = []
     labels = []
     if datatype == 'val':
-        data_dir += 'test_normal.txt'
+        data_dir += 'test_normal'
     else:
-        data_dir += f'{datatype}.txt'
+        data_dir += f'{datatype}'
 
     #7 8 10 9\n  log keys
     #[7,10] [8,2] [10,5] [9,6]\n log keys and params(eg: time)
@@ -71,6 +71,7 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
 
             # split log keys and other params(features)
             line = list(map(eval, line.strip().strip('"').split()))
+            params = []
             if isinstance(line[0], int):
                 line = tuple(map(lambda n: n - 1, line))
             else:
@@ -82,7 +83,7 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
             for i in range(len(line) - window_size):
                 Sequential_pattern = list(line[i:i + window_size])
                 Quantitative_pattern = [0] * num_classes
-                Parameter_pattern = list(params[i:i+window_size])
+                Parameter_pattern = list(params[i:i+window_size]) if params else [0]*window_size
                 log_counter = Counter(Sequential_pattern)
 
                 for key in log_counter:
