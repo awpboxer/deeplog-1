@@ -75,9 +75,9 @@ def train():
     trainer.start_train()
     data_view.plot_train_valid_loss(options["save_dir"])
 
+
 def predict():
     predicter = Predicter(Model, options)
-    #predicter.predict_unsupervised_with_params()
     if options['parameters']:
         predicter.predict_unsupervised_with_params()
     else:
@@ -85,8 +85,6 @@ def predict():
 
 
 if __name__ == "__main__":
-    #train()
-    #predict()
     parser = argparse.ArgumentParser()
     parser.add_argument('mode', choices=['train', 'predict'])
     args = parser.parse_args()

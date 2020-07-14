@@ -112,7 +112,6 @@ class Predicter():
                 for i in range(len(line) - self.window_size):
                     seq0 = line[i:i + self.window_size]
                     label = line[i + self.window_size]
-                    print(seq0, label)
                     seq1 = [0] * self.num_classes
                     log_conuter = Counter(seq0)
                     for key in log_conuter:
@@ -140,7 +139,7 @@ class Predicter():
         P = 100 * TP / (TP + FP +1 )
         R = 100 * TP / (TP + FN+1)
         F1 = 2 * P * R / (P + R+1)
-        print("TP, FP", TP, FP)
+        print("TP: {}, FP: {}".format(TP, FP))
         print(
             'false positive (FP): {}, false negative (FN): {}, Precision: {:.3f}%, Recall: {:.3f}%, F1-measure: {:.3f}%'
             .format(FP, FN, P, R, F1))

@@ -6,6 +6,9 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
 
 def save_parameters(options, filename):
     with open(filename, "w+") as f:
@@ -49,3 +52,15 @@ def train_val_split(logs_meta, labels, val_ratio=0.1):
         train_labels.append(labels[train_index[i]])
 
     return train_logs, train_labels, val_logs, val_labels
+
+
+def plot_train_valid_loss(save_dir):
+    train_loss = pd.read_csv(save_dir + "train_log.csv")
+    valid_loss = pd.read_csv(save_dir + "valid_log.csv")
+    sns.lineplot(x="epoch",y="loss" , data = train_loss, label="train loss")
+    sns.lineplot(x="epoch",y="loss" , data = valid_loss, label="valid loss")
+    plt.title("epoch vs train loss vs valid loss")
+    plt.legend
+    plt.savefig(save_dir+"train_valid_loss.png")
+    plt.show()
+    print("plot done")
