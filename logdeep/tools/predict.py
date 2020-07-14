@@ -5,7 +5,7 @@ import gc
 import os
 import sys
 import time
-from collections import Counter
+from collections import Counter, defaultdict
 sys.path.append('../../')
 
 import numpy as np
@@ -22,10 +22,9 @@ from logdeep.tools.utils import (save_parameters, seed_everything,
                                  train_val_split)
 
 
-def generate(data_dir, name):
+def generate(data_dir, name, window_size):
     print("Loading", data_dir + name)
-    window_size = 10
-    hdfs = {}
+    dd = {}
     length = 0
 
     with open(data_dir + name, 'r') as f:
@@ -38,10 +37,10 @@ def generate(data_dir, name):
                 ln = list(map(lambda x: x[0]-1, ln))
 
             ln = ln + [-1] * (window_size + 1 - len(ln))
-            hdfs[tuple(ln)] = hdfs.get(tuple(ln), 0) + 1
+            dd[tuple(ln)] = dd.get(tuple(ln), 0) + 1
             length += 1
-    print('Number of session after removing duplicates ({}): {}'.format(name, len(hdfs)))
-    return hdfs, length
+    print('Number of session after removing duplicates ({}): {}'.format(name, len(dd)))
+    return dd, length
 
 
 class Predicter():
@@ -68,15 +67,15 @@ class Predicter():
         model.load_state_dict(torch.load(self.model_path)['state_dict'])
         model.eval()
         print('model_path: {}'.format(self.model_path))
-        test_normal_loader, test_normal_length = generate(self.data_dir, 'test_normal')
-        test_abnormal_loader, test_abnormal_length = generate( self.data_dir, 'test_abnormal')
-        print("testing normal size {}, testing abnormal size{}".format(test_normal_length, test_abnormal_length))
+        test_normal_loader, test_normal_length = generate(self.data_dir, 'test_normal', self.window_size)
+        test_abnormal_loader, test_abnormal_length = generate( self.data_dir, 'test_abnormal', self.window_size)
+        print("testing normal size: {}, testing abnormal size: {}".format(test_normal_length, test_abnormal_length))
 
         TP = 0
         FP = 0
         # Test the model
         start_time = time.time()
-        tt_abnomal_cnt = 0
+        tt_abnomal_cnt = defaultdict(int)
         with torch.no_grad():
             for idx, line in tqdm(enumerate(test_normal_loader.keys())):
                 abnormal_cnt = 0
@@ -101,11 +100,11 @@ class Predicter():
                     if abnormal_cnt > self.threshold:
                         FP += 1
                         break
-                tt_abnomal_cnt += abnormal_cnt
-                print("test normal, line {}, abnormal cnt {}".format(idx, abnormal_cnt))
-            print("test normal, average abnormal cnt {}".format(tt_abnomal_cnt/(idx+1)))
+                tt_abnomal_cnt[abnormal_cnt] += 1
+                #print("test normal, line {}, abnormal cnt {}".format(idx, abnormal_cnt), end='\r')
+            print("(test normal), abnormal cnt : {}".format(tt_abnomal_cnt))
 
-        tt_abnomal_cnt = 0
+        tt_abnomal_cnt = defaultdict(int)
         with torch.no_grad():
             for idx, line in tqdm(enumerate(test_abnormal_loader.keys())):
                 abnormal_cnt = 0
@@ -127,12 +126,11 @@ class Predicter():
                                               1)[0][-self.num_candidates:]
                     if label not in predicted:
                         abnormal_cnt += test_abnormal_loader[line]
-                    if abnormal_cnt > self.threshold: # or (len(line) - self.window_size)*self.threshold it defines fault tolarent rate for each sequence
+                    if abnormal_cnt > self.threshold:
                         TP += 1
                         break
-                tt_abnomal_cnt += abnormal_cnt
-                print("test abnormal, line {}, abnormal cnt {}".format(idx, abnormal_cnt))
-            print("testab normal, average abnormal cnt {}".format(tt_abnomal_cnt/(idx+1)))
+                tt_abnomal_cnt[abnormal_cnt] += 1
+            print("(test abnormal), abnormal cnt: {}".format(tt_abnomal_cnt))
 
         # Compute precision, recall and F1-measure
         FN = test_abnormal_length - TP

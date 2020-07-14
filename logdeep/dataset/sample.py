@@ -61,13 +61,27 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
     else:
         data_dir += f'{datatype}'
 
+    sample_size = 1000
+    if sample_ratio != 1:
+        print("Sampling")
+        f = open(data_dir, 'r')
+        sample_size = int(len(f.readlines()) * sample_ratio)
+        f.close()
+        print("sample size", sample_size)
+
     #7 8 10 9\n  log keys
     #[7,10] [8,2] [10,5] [9,6]\n log keys and params(eg: time)
     with open(data_dir, 'r') as f:
         for line in f.readlines():
             if len(line.strip()) == 0:
                 continue
+
             num_sessions += 1
+            if sample_ratio != 1 and num_sessions > sample_size:
+                break
+
+            if num_sessions % 1000 == 0:
+                print("processed %s lines"%num_sessions, end='\r')
 
             # split log keys and other params(features)
             line = list(map(eval, line.strip().strip('"').split()))
@@ -106,9 +120,9 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
                 result_logs['Semantics'].append(Semantic_pattern)
                 result_logs["Parameters"].append(Parameter_pattern)
                 labels.append(line[i + window_size])
-
-    if sample_ratio != 1:
-        result_logs, labels = down_sample(result_logs, labels, sample_ratio)
+    #
+    # if sample_ratio != 1:
+    #     result_logs, labels = down_sample(result_logs, labels, sample_ratio)
 
     print('File {}, number of sessions {}'.format(data_dir, num_sessions))
     print('File {}, number of seqs {}'.format(data_dir,

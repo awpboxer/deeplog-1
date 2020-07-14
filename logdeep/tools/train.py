@@ -51,7 +51,9 @@ class Trainer():
             train_logs, train_labels = sliding_window(self.data_dir,
                                                   datatype='train',
                                                   window_size=self.window_size,
-                                                  num_classes=self.num_classes)
+                                                  num_classes=self.num_classes,
+                                                  sample_ratio= 0.5
+                                                      )
             val_logs, val_labels = sliding_window(self.data_dir,
                                               datatype='val',
                                               window_size=self.window_size,
@@ -215,7 +217,7 @@ class Trainer():
                 output = self.model(features=features, device=self.device)
                 loss = criterion(output, label.to(self.device))
                 total_losses += float(loss)
-        print("\nValidation loss:", total_losses / num_batch)
+        tbar.set_description("Validation loss:", total_losses / num_batch)
         self.log['valid']['loss'].append(total_losses / num_batch)
 
         if total_losses / num_batch < self.best_loss:

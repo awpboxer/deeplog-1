@@ -131,4 +131,3 @@ if __name__ == "__main__":
         # options["num_candidates"] = args.num_candidates
         # options['threshold'] = args.threshold
         predict()
-
