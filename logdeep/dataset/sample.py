@@ -79,29 +79,28 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
             num_sessions += 1
             if sample_ratio != 1 and num_sessions > sample_size:
                 break
-
             if num_sessions % 1000 == 0:
                 print("processed %s lines"%num_sessions, end='\r')
 
             # split log keys and other params(features)
             line = list(map(eval, line.strip().strip('"').split()))
             params = []
-            if isinstance(line[0], int):
-                line = tuple(map(lambda n: n - 1, line))
-            else:
-                params = tuple(map(lambda x: x[1], line))
-                line = tuple(map(lambda x: x[0]-1, line))
+            # if isinstance(line[0], int):
+            #     line = tuple(map(lambda n: n - 1, line))
+            # else:
+            #     params = tuple(map(lambda x: x[1], line))
+            #     line = tuple(map(lambda x: x[0]-1, line))
 
             #line = tuple(map(lambda n: n - 1, map(int, line.strip().split())))
 
             for i in range(len(line) - window_size):
+                Parameter_pattern = list(params[i:i+window_size]) if params else [0]*window_size
                 Sequential_pattern = list(line[i:i + window_size])
                 Quantitative_pattern = [0] * num_classes
-                Parameter_pattern = list(params[i:i+window_size]) if params else [0]*window_size
-                log_counter = Counter(Sequential_pattern)
-
-                for key in log_counter:
-                    Quantitative_pattern[key] = log_counter[key]
+                # log_counter = Counter(Sequential_pattern)
+                #
+                # for key in log_counter:
+                #     Quantitative_pattern[key] = log_counter[key]
                 Semantic_pattern = []
                 # for event in Sequential_pattern:
                 #     if event == 0:
@@ -128,7 +127,7 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
     print('File {}, number of seqs {}'.format(data_dir,
                                               len(result_logs['Sequentials'])))
 
-    return result_logs, labels
+    return result_logs, np.array(labels)[:, np.newaxis]
 
 
 def session_window(data_dir, datatype, sample_ratio=1):

@@ -39,7 +39,8 @@ class log_dataset(Dataset):
             log['Semantics'] = torch.tensor(self.Semantics[idx],
                                             dtype=torch.float)
         if self.param:
-            log['Parameters'] = torch.tensor(self.Parameters[idx], dtype=torch.float)
+            log['Parameters'] = torch.tensor(self.Parameters[idx],
+                                             dtype=torch.float)
         return log, self.labels[idx]
 
 

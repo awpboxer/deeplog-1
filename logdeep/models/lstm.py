@@ -3,33 +3,6 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 
-class deeplog0(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_keys, embedding_size = None):
-        super(deeplog, self).__init__() #super调用父类方法 here init parent class
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-
-        #add embedding layer
-        #self.embedding = nn.Embedding(input_size, embedding_size)
-        #torch.nn.init.normal_(self.embedding, 0, 1) #(tensor, mean=0.0, std=1.0)
-
-        self.lstm = nn.LSTM(input_size,
-                            hidden_size,
-                            num_layers,
-                            batch_first=True) #输入输出的第一维是否为 batch_size， LSTM 的batch_size默认在第二维
-        self.fc = nn.Linear(hidden_size, num_keys) #
-
-    def forward(self, features, device):
-        input0 = features[0]
-        embed0 = input0  #self.embedding(input0)
-        h0 = torch.zeros(self.num_layers, embed0.size(0),
-                         self.hidden_size).to(device)
-        c0 = torch.zeros(self.num_layers, embed0.size(0),
-                         self.hidden_size).to(device)
-        out, _ = self.lstm(embed0, (h0, c0))
-        out = self.fc(out[:, -1, :])
-        return out
-
 class deeplog(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, num_keys):
         super(deeplog, self).__init__()

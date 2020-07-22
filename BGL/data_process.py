@@ -34,19 +34,19 @@ def count_anomaly():
     print("total size {}, abnormal size {}".format(total_size, total_size - normal_size))
 
 
-def deeplog_df_transfer(df, event_id_map, window_size='T'):
+def deeplog_df_transfer(df, features, window_size='T'):
     """
-
-    :param df:
-    :param event_id_map:
     :param window_size: offset datetime https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
     :return:
     """
-    df['datetime'] = pd.to_datetime(df['Time'], format='%Y-%m-%d-%H.%M.%S.%f')
-    df = df[['datetime', 'EventId','Label']]
-    df.loc[:,"EventId"] = df['EventId'].progress_apply(lambda e: event_id_map[e] if event_id_map.get(e) else -1)
+    cols = ['datetime','Label'] + features
+    agg_dict = {'Label':'max'}
+    for f in features:
+        agg_dict[f] = _custom_resampler
+
+    df = df[cols]
     df["Label"] = df["Label"].apply(lambda x: int(x != "-"))
-    deeplog_df = df.set_index('datetime').resample(window_size).agg({"Label": "max", "EventId": _custom_resampler}).reset_index()
+    deeplog_df = df.set_index('datetime').resample(window_size).agg(agg_dict).reset_index()
     return deeplog_df
 
 
@@ -54,11 +54,11 @@ def _custom_resampler(array_like):
     return list(array_like)
 
 
-def deeplog_file_generator(filename, df):
+def deeplog_file_generator(filename, df, features):
     with open(filename, 'w') as f:
-        for event_id_list in df["EventId"]:
-            for event_id in event_id_list:
-                f.write(str(event_id) + ' ')
+        for _, row in df.iterrows():
+            for val in zip(*row[features]):
+                f.write(','.join([str(v) for v in val]) + ' ')
             f.write('\n')
 
 
@@ -82,6 +82,14 @@ def parse_log(input_dir, output_dir, log_file, parser_type):
         parser.parse(log_file)
 
 
+def compute_time_delta(time_list):
+    print("time list length", len(time_list))
+    time_list_ = list(map(lambda x: (x - time_list[0]).seconds, time_list))
+    #t_max = max(time_list_)
+    #time_list_ = [round((t)/(t_max + 0.0001), 4) for t in time_list_]
+    return [t for t in time_list_ if t > 0 ]
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', choices=[1,2], type=int, help="log file: 1=sample data, 2=data")
@@ -89,7 +97,9 @@ if __name__ == "__main__":
     parser.add_argument('-p', default='drain', type=str, help="parser type")
     parser.add_argument('-w', default='T', type=str, help='window size')
     parser.add_argument('-r', default=0.4, type=float, help="train ratio")
-    args = parser.parse_args()
+    parser.add_argument('-col', default='1', type=str, help='column: 1=log key, 2=timestamp')
+    args = parser.parse_args('-f 2 -w 30S -col 2'.split())
+    print(args)
     if args.f == 1:
         log_file = "BGL_2k.log.txt"
     elif args.f == 2:
@@ -109,22 +119,39 @@ if __name__ == "__main__":
     #########
     # Count #
     #########
-    #count_anomaly()
+    # count_anomaly()
 
-    print(args)
     ##################
     # Transformation #
     ##################
     df = pd.read_csv(f'{output_dir}{log_file}_structured.csv')
+    df['datetime'] = pd.to_datetime(df['Time'], format='%Y-%m-%d-%H.%M.%S.%f')
 
-    df_temp = pd.read_csv(f'{output_dir}{log_file}_templates.csv')
-    event_id_map = dict()
-    for i, event_id in enumerate(df_temp['EventId'].unique(), 1):
-        event_id_map[event_id] = i
-    print(f'length of event_id_map: {len(event_id_map)}')
 
-    deeplog_df = deeplog_df_transfer(df, event_id_map, window_size=args.w)
+    cols = []
+    if "1" in args.col:
+        cols.append('EventId')
+        df_temp = pd.read_csv(f'{output_dir}{log_file}_templates.csv')
+        event_id_map = dict()
+        for i, event_id in enumerate(df_temp['EventId'].unique(), 1):
+            event_id_map[event_id] = i
+        print(f'length of event_id_map: {len(event_id_map)}')
+
+        df.loc[:,"EventId"] = df["EventId"].progress_apply(lambda e: event_id_map[e] if event_id_map.get(e) else -1)
+
+    if "2" in args.col:
+        cols.append('deltaT')
+        df['deltaT'] = df['datetime'].diff().dt.microseconds.div(1000000, fill_value=0) #microseconds / 1000000 = seconds
+
+    if not cols:
+        raise NotImplementedError
+
+    deeplog_df = deeplog_df_transfer(df, cols, window_size=args.w)
     deeplog_df.dropna(subset=["Label"], inplace=True)
+
+    # if "2" in args.col:
+    #     deeplog_df["datetime_"] = deeplog_df["datetime_"].apply(compute_time_delta)
+
     #########
     # Train #
     #########
@@ -133,13 +160,13 @@ if __name__ == "__main__":
     normal_len = len(df_normal)
     train_ratio = args.r
     train_len = int(normal_len * train_ratio)
-    deeplog_file_generator(os.path.join(output_dir,'train'), df_normal[:train_len])
+    deeplog_file_generator(os.path.join(output_dir,'train'), df_normal[:train_len], cols)
     print("training size {}".format(train_len))
 
     ###############
     # Test Normal #
     ###############
-    deeplog_file_generator(os.path.join(output_dir, 'test_normal'), df_normal[train_len:])
+    deeplog_file_generator(os.path.join(output_dir, 'test_normal'), df_normal[train_len:], cols)
     print("test normal size {}".format(normal_len - train_len))
 
     del df_normal
@@ -149,5 +176,5 @@ if __name__ == "__main__":
     # Test Abnormal #
     #################
     df_abnormal = deeplog_df[deeplog_df["Label"] == 1]
-    deeplog_file_generator(os.path.join(output_dir,'test_abnormal'), df_abnormal)
+    deeplog_file_generator(os.path.join(output_dir,'test_abnormal'), df_abnormal, cols)
     print('test abnormal size {}'.format(len(df_abnormal)))

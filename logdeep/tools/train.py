@@ -32,6 +32,7 @@ class Trainer():
         self.lr_decay_ratio = options['lr_decay_ratio']
         self.accumulation_step = options['accumulation_step']
         self.max_epoch = options['max_epoch']
+        self.criterion = None
 
         self.sequentials = options['sequentials']
         self.quantitatives = options['quantitatives']
@@ -52,7 +53,7 @@ class Trainer():
                                                   datatype='train',
                                                   window_size=self.window_size,
                                                   num_classes=self.num_classes,
-                                                  sample_ratio= 0.5
+                                                  sample_ratio= 0.1
                                                       )
             val_logs, val_labels = sliding_window(self.data_dir,
                                               datatype='val',
@@ -116,6 +117,13 @@ class Trainer():
         else:
             raise NotImplementedError
 
+        if self.sequentials:
+            self.criterion = nn.CrossEntropyLoss()
+        if self.parameters:
+            self.criterion = nn.MSELoss()
+        if self.criterion is None:
+            raise NotImplementedError("train criterion is not defined")
+
         self.start_epoch = 0
         self.best_loss = 1e10
         self.best_score = -1
@@ -177,7 +185,7 @@ class Trainer():
         self.log['train']['time'].append(start)
         self.model.train()
         self.optimizer.zero_grad()
-        criterion = nn.CrossEntropyLoss()
+        criterion = self.criterion
         tbar = tqdm(self.train_loader, desc="\r")
         num_batch = len(self.train_loader)
         total_losses = 0
@@ -185,8 +193,8 @@ class Trainer():
             features = []
             for value in log.values():
                 features.append(value.clone().detach().to(self.device))
-            output = self.model(features=features, device=self.device)
-            loss = criterion(output, label.to(self.device))
+            output = self.model(features=features, device=self.device).float()
+            loss = criterion(output, label.to(self.device).float())
             total_losses += float(loss)
             loss /= self.accumulation_step
             loss.backward()
@@ -206,7 +214,7 @@ class Trainer():
         print("\nStarting epoch: %d | phase: valid | ⏰: %s " % (epoch, start))
         self.log['valid']['time'].append(start)
         total_losses = 0
-        criterion = nn.CrossEntropyLoss()
+        criterion = self.criterion
         tbar = tqdm(self.valid_loader, desc="\r")
         num_batch = len(self.valid_loader)
         for i, (log, label) in enumerate(tbar):
@@ -217,7 +225,7 @@ class Trainer():
                 output = self.model(features=features, device=self.device)
                 loss = criterion(output, label.to(self.device))
                 total_losses += float(loss)
-        tbar.set_description("Validation loss:", total_losses / num_batch)
+        print("\nValidation loss:", total_losses / num_batch)
         self.log['valid']['loss'].append(total_losses / num_batch)
 
         if total_losses / num_batch < self.best_loss:
@@ -233,21 +241,28 @@ class Trainer():
             self.early_stopping = True
             print("Early stopping")
 
+    def get_error_gaussian(self):
+        model = self.model.to(self.device)
+        model.load_state_dict(torch.load(self.save_dir + 'deeplog_bestloss.pth')['state_dict'])
+        model.eval()
+        tbar = tqdm(self.valid_loader, desc="\r")
+        errors = torch.tensor([], dtype=torch.float)
+        for i, (log, label) in enumerate(tbar):
+            with torch.no_grad():
+                features = []
+                for value in log.values():
+                    features.append(value.clone().detach().to(self.device))
+                output = model(features=features, device=self.device)
+                error = output.reshape(-1, 1) - label.reshape(-1, 1)
+                errors = torch.cat((errors, error.float()))
+        std, mean = torch.std_mean(errors)
+        print("The Gaussian distribution of predicted errors, mean = {:.4f}, std = {:.4f}".format(mean.item(), std.item()))
+
     def start_train(self):
         for epoch in range(self.start_epoch, self.max_epoch):
-            # if epoch == 0:
-            #     self.optimizer.param_groups[0]['lr'] /= 32
-            # if epoch in [1, 2, 3, 4, 5]:
-            #     self.optimizer.param_groups[0]['lr'] *= 2
-            # if epoch in self.lr_step:
-            #     self.optimizer.param_groups[0]['lr'] *= self.lr_decay_ratio
-            if self.early_stopping:
-                break
+            if self.early_stopping:break
             self.train(epoch)
-            #if epoch >= self.max_epoch // 2 and epoch % 2 == 0:
             self.valid(epoch)
-            # self.save_checkpoint(epoch,
-            #                       save_optimizer=True,
-            #                       suffix="epoch" + str(epoch))
-            #self.save_checkpoint(epoch, save_optimizer=True, suffix="last")
             self.save_log()
+
+        if self.parameters:self.get_error_gaussian()
