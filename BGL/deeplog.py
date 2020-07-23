@@ -4,7 +4,7 @@ import argparse
 import sys
 sys.path.append('../')
 
-from logdeep.models.lstm import deeplog, deeplog2
+from logdeep.models.lstm import *
 from logdeep.tools.predict import Predicter
 from logdeep.tools.train import Trainer
 from logdeep.tools.utils import *
@@ -63,7 +63,7 @@ options["gaussian_std"] = None
 print("Device:", options['device'])
 seed_everything(seed=1234)
 
-Model = deeplog2(input_size=options['input_size'],
+Model = deeplog3(input_size=options['input_size'],
                 hidden_size=options['hidden_size'],
                 num_layers=options['num_layers'],
                 num_keys=options['num_classes'])
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     predict_parser.add_argument('--std', type=float, default=None, help='error gaussian distribution std')
 
     if debug:
-        args = parser.parse_args('train'.split())
+        args = parser.parse_args('predict --mean -0.4295 --std 0.3268'.split())
         options['max_epoch'] = 5
         options['train_ratio'] = 1
         options['valid_ratio'] = 0.5

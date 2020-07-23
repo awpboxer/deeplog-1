@@ -57,6 +57,7 @@ class deeplog1(nn.Module):
         out1 = self.fc1(out[:, -1, :])
         return out0, out1
 
+#two lstm and merge two hidden state
 class deeplog2(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, num_keys):
         super(deeplog2, self).__init__()
@@ -100,6 +101,51 @@ class deeplog2(nn.Module):
 
         multi_out0 = self.fc0(multi_out)
         multi_out1 = self.fc1(multi_out)
+        return multi_out0, multi_out1
+
+# two lstm and not merge hidden state
+class deeplog3(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, num_keys):
+        super(deeplog3, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.embedding_dim = 50
+        self.embedding_size = num_keys + 1 # +1 for padding log key 0
+        self.embedding = nn.Embedding(self.embedding_size, self.embedding_dim)
+        torch.nn.init.uniform_(self.embedding.weight)
+        self.embedding.weight.requires_grad = True
+
+        self.lstm0 = nn.LSTM(self.embedding_dim,
+                            hidden_size,
+                            num_layers,
+                            batch_first=True)
+        self.lstm1 = nn.LSTM(input_size,
+                            hidden_size,
+                            num_layers,
+                            batch_first=True)
+
+        self.fc0 = nn.Linear(hidden_size, num_keys)
+        self.fc1 = nn.Linear(hidden_size, 1)  # num of parameters, timestamp
+
+    def forward(self, features, device):
+        input0, input1 = features[0], features[1]
+        embedd0 = self.embedding(input0)
+        h0_0 = torch.zeros(self.num_layers, embedd0.size(0),
+                           self.hidden_size).to(device)
+        c0_0 = torch.zeros(self.num_layers, embedd0.size(0),
+                           self.hidden_size).to(device)
+
+        out0, _ = self.lstm0(embedd0, (h0_0, c0_0))
+
+        h0_1 = torch.zeros(self.num_layers, input1.size(0),
+                           self.hidden_size).to(device)
+        c0_1 = torch.zeros(self.num_layers, input1.size(0),
+                           self.hidden_size).to(device)
+
+        out1, _ = self.lstm1(input1, (h0_1, c0_1))
+
+        multi_out0 = self.fc0(out0[:, -1, :])
+        multi_out1 = self.fc1(out1[:, -1, :])
         return multi_out0, multi_out1
 
 

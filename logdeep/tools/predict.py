@@ -54,7 +54,7 @@ def detect_logkey_anomaly(output, label, num_candidates):
 def detect_params_anomaly(output, label, gaussian_mean, gaussian_std):
     predicted = output
     error = predicted.item() - label.item()
-    if error < gaussian_mean - 3 * gaussian_std or error > gaussian_mean + 3 * gaussian_std:
+    if error < gaussian_mean - 2 * gaussian_std or error > gaussian_mean + 2 * gaussian_std:
         return True
     return False
 
