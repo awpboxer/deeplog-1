@@ -31,7 +31,7 @@ class log_dataset(Dataset):
         log = dict()
         if self.seq:
             log['Sequentials'] = torch.tensor(self.Sequentials[idx],
-                                              dtype=torch.float)
+                                              dtype=torch.long)
         if self.quan:
             log['Quantitatives'] = torch.tensor(self.Quantitatives[idx],
                                                 dtype=torch.float)

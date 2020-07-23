@@ -24,12 +24,42 @@ class deeplog(nn.Module):
         out = self.fc(out[:, -1, :])
         return out
 
+# log key and parameter value as input and output
+class deeplog1(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, num_keys):
+        super(deeplog1, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.lstm = nn.LSTM(input_size,
+                            hidden_size,
+                            num_layers,
+                            batch_first=True)
+        self.fc0 = nn.Linear(hidden_size, num_keys)
+        self.fc1 = nn.Linear(hidden_size, 1)
+
+    def forward(self, features, device):
+        input0 = features[0]
+        h0 = torch.zeros(self.num_layers, input0.size(0),
+                         self.hidden_size).to(device)
+        c0 = torch.zeros(self.num_layers, input0.size(0),
+                         self.hidden_size).to(device)
+        out, _ = self.lstm(input0, (h0, c0))
+        out0 = self.fc0(out[:, -1, :])
+        out1 = self.fc1(out[:, -1, :])
+        return out0, out1
+
 class deeplog2(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, num_keys):
         super(deeplog2, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.lstm0 = nn.LSTM(input_size,
+        self.embedding_dim = 50
+        self.embedding_size = num_keys + 1 # +1 for padding log key 0
+        self.embedding = nn.Embedding(self.embedding_size, self.embedding_dim)
+        torch.nn.init.uniform_(self.embedding.weight)
+        self.embedding.weight.requires_grad = True
+
+        self.lstm0 = nn.LSTM(self.embedding_dim,
                             hidden_size,
                             num_layers,
                             batch_first=True)
@@ -37,17 +67,19 @@ class deeplog2(nn.Module):
                             hidden_size,
                             num_layers,
                             batch_first=True)
-        self.fc = nn.Linear(2*hidden_size, num_keys)
+
+        self.fc0 = nn.Linear(2*hidden_size, num_keys)
+        self.fc1 = nn.Linear(2*hidden_size, 1)  # num of parameters, timestamp
 
     def forward(self, features, device):
         input0, input1 = features[0], features[1]
-
-        h0_0 = torch.zeros(self.num_layers, input0.size(0),
+        embedd0 = self.embedding(input0)
+        h0_0 = torch.zeros(self.num_layers, embedd0.size(0),
                            self.hidden_size).to(device)
-        c0_0 = torch.zeros(self.num_layers, input0.size(0),
+        c0_0 = torch.zeros(self.num_layers, embedd0.size(0),
                            self.hidden_size).to(device)
 
-        out0, _ = self.lstm0(input0, (h0_0, c0_0))
+        out0, _ = self.lstm0(embedd0, (h0_0, c0_0))
 
         h0_1 = torch.zeros(self.num_layers, input1.size(0),
                            self.hidden_size).to(device)
@@ -56,8 +88,10 @@ class deeplog2(nn.Module):
 
         out1, _ = self.lstm1(input1, (h0_1, c0_1))
         multi_out = torch.cat((out0[:, -1, :], out1[:, -1, :]), -1)
-        out = self.fc(multi_out)
-        return out
+
+        multi_out0 = self.fc0(multi_out)
+        multi_out1 = self.fc1(multi_out)
+        return multi_out0, multi_out1
 
 
 class loganomaly(nn.Module):

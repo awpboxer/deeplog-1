@@ -7,6 +7,8 @@ import sys
 import time
 sys.path.append('../../')
 
+import seaborn as sns
+import matplotlib.pyplot as plt
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -193,8 +195,21 @@ class Trainer():
             features = []
             for value in log.values():
                 features.append(value.clone().detach().to(self.device))
-            output = self.model(features=features, device=self.device).float()
-            loss = criterion(output, label.to(self.device).float())
+
+            # output = self.model(features=features, device=self.device).float()
+            # loss = criterion(output, label.to(self.device).float())
+
+            output0, output1 = self.model(features=features, device=self.device)
+            output0, output1 = output0.squeeze(), output1.squeeze()
+            label0, label1 = label
+            label0 = label0.to(self.device)
+            label1 = label1.to(self.device).float()
+            loss0 = nn.CrossEntropyLoss()(output0, label0)
+            assert output1.shape == label1.shape
+            assert output1.dtype == label1.dtype
+            loss1 = nn.MSELoss()(output1, label1)
+            loss = loss0 + loss1 * 1
+
             total_losses += float(loss)
             loss /= self.accumulation_step
             loss.backward()
@@ -222,8 +237,18 @@ class Trainer():
                 features = []
                 for value in log.values():
                     features.append(value.clone().detach().to(self.device))
-                output = self.model(features=features, device=self.device)
-                loss = criterion(output, label.to(self.device))
+                #output = self.model(features=features, device=self.device)
+                #loss = criterion(output, label.to(self.device))
+
+                output0, output1 = self.model(features=features, device=self.device)
+                output1 = output1.squeeze()
+                label0, label1 = label
+                label0 = label0.to(self.device)
+                label1 = label1.to(self.device).float()
+                loss0 = nn.CrossEntropyLoss()(output0, label0)
+                loss1 = nn.MSELoss()(output1, label1)
+                loss = loss0 + loss1 * 1
+                print('loss0 {} loss1 {}'.format(float(loss0), float(loss1)))
                 total_losses += float(loss)
         print("\nValidation loss:", total_losses / num_batch)
         self.log['valid']['loss'].append(total_losses / num_batch)
@@ -241,6 +266,17 @@ class Trainer():
             self.early_stopping = True
             print("Early stopping")
 
+    def plot_train_valid_loss(self):
+        train_loss = pd.read_csv(self.save_dir + "train_log.csv")
+        valid_loss = pd.read_csv(self.save_dir + "valid_log.csv")
+        sns.lineplot(x="epoch", y="loss", data=train_loss, label="train loss")
+        sns.lineplot(x="epoch", y="loss", data=valid_loss, label="valid loss")
+        plt.title("epoch vs train loss vs valid loss")
+        plt.legend
+        plt.savefig(self.save_dir + "train_valid_loss.png")
+        plt.show()
+        print("plot done")
+
     def get_error_gaussian(self):
         model = self.model.to(self.device)
         model.load_state_dict(torch.load(self.save_dir + 'deeplog_bestloss.pth')['state_dict'])
@@ -252,17 +288,26 @@ class Trainer():
                 features = []
                 for value in log.values():
                     features.append(value.clone().detach().to(self.device))
-                output = model(features=features, device=self.device)
-                error = output.reshape(-1, 1) - label.reshape(-1, 1)
+                # output = model(features=features, device=self.device)
+                _, output = model(features=features, device=self.device)
+                _, label = label
+                error = output.squeeze() - label
                 errors = torch.cat((errors, error.float()))
         std, mean = torch.std_mean(errors)
         print("The Gaussian distribution of predicted errors, mean = {:.4f}, std = {:.4f}".format(mean.item(), std.item()))
+        sns_plot = sns.kdeplot(errors.numpy())
+        sns_plot.get_figure().savefig(self.save_dir + "valid_error_dist.png")
+        plt.show()
 
     def start_train(self):
         for epoch in range(self.start_epoch, self.max_epoch):
-            if self.early_stopping:break
+            if self.early_stopping:
+                break
             self.train(epoch)
             self.valid(epoch)
             self.save_log()
 
-        if self.parameters:self.get_error_gaussian()
+        if self.parameters:
+            self.get_error_gaussian()
+
+        self.plot_train_valid_loss()

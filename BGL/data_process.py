@@ -82,14 +82,6 @@ def parse_log(input_dir, output_dir, log_file, parser_type):
         parser.parse(log_file)
 
 
-def compute_time_delta(time_list):
-    print("time list length", len(time_list))
-    time_list_ = list(map(lambda x: (x - time_list[0]).seconds, time_list))
-    #t_max = max(time_list_)
-    #time_list_ = [round((t)/(t_max + 0.0001), 4) for t in time_list_]
-    return [t for t in time_list_ if t > 0 ]
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', choices=[1,2], type=int, help="log file: 1=sample data, 2=data")
@@ -98,7 +90,7 @@ if __name__ == "__main__":
     parser.add_argument('-w', default='T', type=str, help='window size')
     parser.add_argument('-r', default=0.4, type=float, help="train ratio")
     parser.add_argument('-col', default='1', type=str, help='column: 1=log key, 2=timestamp')
-    args = parser.parse_args('-f 2 -w 30S -col 2'.split())
+    args = parser.parse_args('-f 1 -w H -col 12'.split())
     print(args)
     if args.f == 1:
         log_file = "BGL_2k.log.txt"
@@ -127,7 +119,6 @@ if __name__ == "__main__":
     df = pd.read_csv(f'{output_dir}{log_file}_structured.csv')
     df['datetime'] = pd.to_datetime(df['Time'], format='%Y-%m-%d-%H.%M.%S.%f')
 
-
     cols = []
     if "1" in args.col:
         cols.append('EventId')
@@ -148,9 +139,6 @@ if __name__ == "__main__":
 
     deeplog_df = deeplog_df_transfer(df, cols, window_size=args.w)
     deeplog_df.dropna(subset=["Label"], inplace=True)
-
-    # if "2" in args.col:
-    #     deeplog_df["datetime_"] = deeplog_df["datetime_"].apply(compute_time_delta)
 
     #########
     # Train #

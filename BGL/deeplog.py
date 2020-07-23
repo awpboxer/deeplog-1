@@ -21,10 +21,10 @@ options['device'] = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # Smaple
 options['sample'] = "sliding_window"
-options['window_size'] = 20  # if fix_window
+options['window_size'] = 3  # if fix_window
 
 # Features
-options['sequentials'] = False
+options['sequentials'] = True
 options['quantitatives'] = False
 options['semantics'] = False
 options['parameters'] = True
@@ -35,18 +35,18 @@ options['feature_num'] = sum(
 options['input_size'] = 1
 options['hidden_size'] = 64
 options['num_layers'] = 2
-options['num_classes'] = 1 # 334 # when options['parameters'] is True, then num_classes = 1
+options['num_classes'] = 334 # when options['parameters'] is True, then num_classes = 1
 
 # Train
 options['batch_size'] = 128 #2048
 options['accumulation_step'] = 1
-options['batch_size_train'] = 256
+options['batch_size_train'] = 32
 options['batch_size_test'] = 256
-options["n_epochs_stop"] = 5
 
 options['optimizer'] = 'adam'
 options['lr'] = 0.001
-options['max_epoch'] = 2
+options['max_epoch'] = 5
+options["n_epochs_stop"] = 5
 options['lr_step'] = (options['max_epoch'] - 20, options['max_epoch'])
 options['lr_decay_ratio'] = 0.1
 
@@ -58,13 +58,13 @@ options['save_dir'] = options["data_dir"] + "deeplog/"
 options['model_path'] = options["save_dir"] + "deeplog_bestloss.pth"
 options['num_candidates'] = 9
 options["threshold"] = None
-options["gaussian_mean"] = -0.0055
-options["gaussian_std"] = 0.0633
+options["gaussian_mean"] = 0.0589
+options["gaussian_std"] = 0.2522
 
 
 print("Device:", options['device'])
 seed_everything(seed=1234)
-Model = deeplog(input_size=options['input_size'],
+Model = deeplog2(input_size=options['input_size'],
                 hidden_size=options['hidden_size'],
                 num_layers=options['num_layers'],
                 num_keys=options['num_classes'])
@@ -72,12 +72,10 @@ Model = deeplog(input_size=options['input_size'],
 def train():
     trainer = Trainer(Model, options)
     trainer.start_train()
-    plot_train_valid_loss(options["save_dir"])
-
 
 def predict():
     predicter = Predicter(Model, options)
-    predicter.predict_unsupervised()
+    predicter.predict_unsupervised2()
 
 
 if __name__ == "__main__":
@@ -92,7 +90,7 @@ if __name__ == "__main__":
     predict_parser.add_argument('-n','--num_candidates', type=int, default=9, help='num candidates')
     predict_parser.add_argument('-t','--threshold', type=int, default=0, help='threshold')
 
-    args = parser.parse_args(['predict'])
+    args = parser.parse_args(['train'])
     print("arguments", args)
 
     if args.mode == 'train':

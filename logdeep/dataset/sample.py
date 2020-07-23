@@ -39,6 +39,25 @@ def down_sample(logs, labels, sample_ratio):
     return sample_logs, sample_labels
 
 
+# https://stackoverflow.com/questions/15357422/python-determine-if-a-string-should-be-converted-into-int-or-float
+def isfloat(x):
+    try:
+        a = float(x)
+    except ValueError:
+        return False
+    else:
+        return True
+
+def isint(x):
+    try:
+        a = float(x)
+        b = int(a)
+    except ValueError:
+        return False
+    else:
+        return a == b
+
+
 def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1):
     '''
     dataset structure
@@ -69,8 +88,6 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
         f.close()
         print("sample size", sample_size)
 
-    #7 8 10 9\n  log keys
-    #[7,10] [8,2] [10,5] [9,6]\n log keys and params(eg: time)
     with open(data_dir, 'r') as f:
         for line in f.readlines():
             if len(line.strip()) == 0:
@@ -82,43 +99,29 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
             if num_sessions % 1000 == 0:
                 print("processed %s lines"%num_sessions, end='\r')
 
-            # split log keys and other params(features)
-            line = list(map(eval, line.strip().strip('"').split()))
-            params = []
-            # if isinstance(line[0], int):
-            #     line = tuple(map(lambda n: n - 1, line))
-            # else:
-            #     params = tuple(map(lambda x: x[1], line))
-            #     line = tuple(map(lambda x: x[0]-1, line))
-
-            #line = tuple(map(lambda n: n - 1, map(int, line.strip().split())))
+            line = list(map(eval, line.strip().split()))
+            params = [0] * len(line)
+            # log key + params
+            if isinstance(line[0], tuple):
+                params = list(map(lambda x: x[1], line))
+                line = list(map(lambda x: x[0], line))
+            params = params + [0] * (window_size - len(line) + 1)
+            line = line + [0] * (window_size - len(line) + 1)
 
             for i in range(len(line) - window_size):
-                Parameter_pattern = list(params[i:i+window_size]) if params else [0]*window_size
-                Sequential_pattern = list(line[i:i + window_size])
-                Quantitative_pattern = [0] * num_classes
-                # log_counter = Counter(Sequential_pattern)
-                #
-                # for key in log_counter:
-                #     Quantitative_pattern[key] = log_counter[key]
+                Parameter_pattern = params[i:i+window_size]
+                Sequential_pattern = line[i:i + window_size]
+                Quantitative_pattern = []
                 Semantic_pattern = []
-                # for event in Sequential_pattern:
-                #     if event == 0:
-                #         Semantic_pattern.append([-1] * 300)
-                #     else:
-                #         Semantic_pattern.append(event2semantic_vec[str(event -
-                #                                                        1)])
-                Sequential_pattern = np.array(Sequential_pattern)[:,
-                                                               np.newaxis]
-                Quantitative_pattern = np.array(
-                    Quantitative_pattern)[:, np.newaxis]
 
+                #Sequential_pattern = np.array(Sequential_pattern) #[:, np.newaxis]
                 Parameter_pattern = np.array(Parameter_pattern)[:, np.newaxis] #increase one more dimension
+
                 result_logs['Sequentials'].append(Sequential_pattern)
                 result_logs['Quantitatives'].append(Quantitative_pattern)
                 result_logs['Semantics'].append(Semantic_pattern)
                 result_logs["Parameters"].append(Parameter_pattern)
-                labels.append(line[i + window_size])
+                labels.append([line[i + window_size], params[i + window_size]] )
     #
     # if sample_ratio != 1:
     #     result_logs, labels = down_sample(result_logs, labels, sample_ratio)
@@ -127,7 +130,7 @@ def sliding_window(data_dir, datatype, window_size, num_classes, sample_ratio=1)
     print('File {}, number of seqs {}'.format(data_dir,
                                               len(result_logs['Sequentials'])))
 
-    return result_logs, np.array(labels)[:, np.newaxis]
+    return result_logs, labels
 
 
 def session_window(data_dir, datatype, sample_ratio=1):
@@ -163,7 +166,7 @@ def session_window(data_dir, datatype, sample_ratio=1):
         for key in log_counter:
             Quantitative_pattern[key] = log_counter[key]
 
-        Sequential_pattern = np.array(Sequential_pattern)[:, np.newaxis]
+        Sequential_pattern = np.array(Sequential_pattern) # [:, np.newaxis]
         Quantitative_pattern = np.array(Quantitative_pattern)[:, np.newaxis]
         result_logs['Sequentials'].append(Sequential_pattern)
         result_logs['Quantitatives'].append(Quantitative_pattern)
