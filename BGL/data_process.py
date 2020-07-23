@@ -3,6 +3,7 @@ sys.path.append('../')
 
 import os
 import gc
+import platform
 import logging
 import pandas as pd
 from logparser import Spell, Drain
@@ -90,8 +91,12 @@ if __name__ == "__main__":
     parser.add_argument('-w', default='T', type=str, help='window size')
     parser.add_argument('-r', default=0.4, type=float, help="train ratio")
     parser.add_argument('-col', default='1', type=str, help='column: 1=log key, 2=timestamp')
-    args = parser.parse_args('-f 1 -w H -col 12'.split())
+    if platform.system() == 'Windows':
+        args = parser.parse_args('-f 1 -w d -col 12'.split())
+    else:
+        args = parser.parse_args()
     print(args)
+
     if args.f == 1:
         log_file = "BGL_2k.log.txt"
     elif args.f == 2:

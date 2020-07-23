@@ -76,7 +76,6 @@ class Predicter():
         self.batch_size = options['batch_size']
         self.num_classes = options['num_classes']
         self.threshold = options["threshold"]
-        self.batch_size_test = options["batch_size_test"]
         self.gaussian_mean = options["gaussian_mean"]
         self.gaussian_std = options["gaussian_std"]
         self.save_dir = options['save_dir']
@@ -299,7 +298,7 @@ class Predicter():
                                    quan=self.quantitatives,
                                    sem=self.semantics)
         self.test_loader = DataLoader(test_dataset,
-                                      batch_size=self.batch_size_test,
+                                      batch_size=self.batch_size,
                                       shuffle=False,
                                       pin_memory=True)
         tbar = tqdm(self.test_loader, desc="\r")

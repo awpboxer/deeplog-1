@@ -30,20 +30,29 @@ class deeplog1(nn.Module):
         super(deeplog1, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.lstm = nn.LSTM(input_size,
+        self.embedding_dim = 50
+        self.embedding_size = num_keys + 1  # +1 for padding log key 0
+        self.parameter_dim = 1
+        self.embedding = nn.Embedding(self.embedding_size, self.embedding_dim)
+        torch.nn.init.uniform_(self.embedding.weight)
+        self.embedding.weight.requires_grad = True
+
+        self.lstm = nn.LSTM(self.embedding_dim + self.parameter_dim,
                             hidden_size,
                             num_layers,
                             batch_first=True)
-        self.fc0 = nn.Linear(hidden_size, num_keys)
-        self.fc1 = nn.Linear(hidden_size, 1)
+        self.fc0 = nn.Linear(hidden_size, self.embedding_size)
+        self.fc1 = nn.Linear(hidden_size, self.parameter_dim)
 
     def forward(self, features, device):
-        input0 = features[0]
-        h0 = torch.zeros(self.num_layers, input0.size(0),
+        input0, input1 = features
+        embed0 = self.embedding(input0)
+        multi_input = torch.cat((embed0, input1))
+        h0 = torch.zeros(self.num_layers, multi_input.size(0),
                          self.hidden_size).to(device)
-        c0 = torch.zeros(self.num_layers, input0.size(0),
+        c0 = torch.zeros(self.num_layers, multi_input.size(0),
                          self.hidden_size).to(device)
-        out, _ = self.lstm(input0, (h0, c0))
+        out, _ = self.lstm(multi_input, (h0, c0))
         out0 = self.fc0(out[:, -1, :])
         out1 = self.fc1(out[:, -1, :])
         return out0, out1

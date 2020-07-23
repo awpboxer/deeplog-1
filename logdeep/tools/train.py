@@ -43,11 +43,11 @@ class Trainer():
         self.sample = options['sample']
         self.feature_num = options['feature_num']
         self.num_classes = options['num_classes']
-        self.batch_size_train = options["batch_size_train"]
-        self.batch_size_test = options["batch_size_test"]
         self.early_stopping = False
         self.n_epochs_stop = options["n_epochs_stop"]
         self.epochs_no_improve = 0
+        self.train_ratio = options['train_ratio']
+        self.valid_ratio = options['valid_ratio']
 
         os.makedirs(self.save_dir, exist_ok=True)
         if self.sample == 'sliding_window':
@@ -55,13 +55,13 @@ class Trainer():
                                                   datatype='train',
                                                   window_size=self.window_size,
                                                   num_classes=self.num_classes,
-                                                  sample_ratio= 0.1
+                                                  sample_ratio=self.train_ratio
                                                       )
             val_logs, val_labels = sliding_window(self.data_dir,
                                               datatype='val',
                                               window_size=self.window_size,
                                               num_classes=self.num_classes,
-                                              sample_ratio=0.01)
+                                              sample_ratio=self.valid_ratio)
         elif self.sample == 'session_window':
             train_logs, train_labels = session_window(self.data_dir,
                                                       datatype='train')
@@ -88,11 +88,11 @@ class Trainer():
         gc.collect()
 
         self.train_loader = DataLoader(train_dataset,
-                                       batch_size=self.batch_size_train,
+                                       batch_size=self.batch_size,
                                        shuffle=True,
                                        pin_memory=True)
         self.valid_loader = DataLoader(valid_dataset,
-                                       batch_size=self.batch_size_test,
+                                       batch_size=self.batch_size,
                                        shuffle=False,
                                        pin_memory=True)
 
@@ -102,7 +102,7 @@ class Trainer():
         print('Find %d train logs, %d validation logs' %
               (self.num_train_log, self.num_valid_log))
         print('Train batch size %d ,Validation batch size %d' %
-              (options['batch_size_train'], options['batch_size_test']))
+              (options['batch_size'], options['batch_size']))
 
         self.model = model.to(self.device)
 
@@ -248,7 +248,6 @@ class Trainer():
                 loss0 = nn.CrossEntropyLoss()(output0, label0)
                 loss1 = nn.MSELoss()(output1, label1)
                 loss = loss0 + loss1 * 1
-                print('loss0 {} loss1 {}'.format(float(loss0), float(loss1)))
                 total_losses += float(loss)
         print("\nValidation loss:", total_losses / num_batch)
         self.log['valid']['loss'].append(total_losses / num_batch)
@@ -291,10 +290,10 @@ class Trainer():
                 # output = model(features=features, device=self.device)
                 _, output = model(features=features, device=self.device)
                 _, label = label
-                error = output.squeeze() - label
-                errors = torch.cat((errors, error.float()))
+                error = output.squeeze().detach().clone().cpu().float() - label.detach().clone().cpu().float()
+                errors = torch.cat((errors, error))
         std, mean = torch.std_mean(errors)
-        print("The Gaussian distribution of predicted errors, mean = {:.4f}, std = {:.4f}".format(mean.item(), std.item()))
+        print("The Gaussian distribution of predicted errors, --mean {:.4f} --std {:.4f}".format(mean.item(), std.item()))
         sns_plot = sns.kdeplot(errors.numpy())
         sns_plot.get_figure().savefig(self.save_dir + "valid_error_dist.png")
         plt.show()
