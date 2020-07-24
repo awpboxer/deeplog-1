@@ -47,7 +47,7 @@ class deeplog1(nn.Module):
     def forward(self, features, device):
         input0, input1 = features
         embed0 = self.embedding(input0)
-        multi_input = torch.cat((embed0, input1))
+        multi_input = torch.cat((embed0, input1), 2)
         h0 = torch.zeros(self.num_layers, multi_input.size(0),
                          self.hidden_size).to(device)
         c0 = torch.zeros(self.num_layers, multi_input.size(0),
